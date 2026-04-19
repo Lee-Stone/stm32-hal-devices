@@ -22,6 +22,7 @@
   - [3. TB6612 电机驱动模块](#3-tb6612-电机驱动模块)
   - [4. Encoder 编码器模块](#4-encoder-编码器模块)
   - [5. Serial 串口模块](#5-serial-串口模块)
+  - [6. HCSR04 超声波测距模块](#6-hcsr04-超声波测距模块)
 - [📧 联系方式](#-联系方式)
 
 ## 📖 项目简介
@@ -38,6 +39,7 @@ stm32-hal-devices/
 ├── TB6612/                	# TB6612 双路电机驱动模块
 ├── Encoder/               	# 轮式霍尔AB编码器模块  
 ├── Serial/                 # Serial 串口模块
+├── HCSR04/                 # HC-SR04 超声波测距模块
 ├── images/
 ├── README.md              
 └── LICENSE
@@ -631,7 +633,7 @@ int main(void)
 
 ### 5. Serial 串口模块
 
-支持多路 USART 串口，基于结构体实例管理，每路串口独立互不干扰。使用中断接收模式，每收到 1 字节自动置位标志位，主循环轮询标志位即可读取，无需阻塞等待。
+支持多路 USART 串口，基于结构体实例管理，每路串口独立互不干扰。
 
 ![1-9](images/1-9.png)
 
@@ -732,6 +734,125 @@ int main(void)
 
 > **注意**：Serial 库内部已实现 `HAL_UART_RxCpltCallback`（覆盖 HAL 弱定义）。  
 > 若项目中其他地方也需要该回调，请删除 Serial.c 中的 `HAL_UART_RxCpltCallback`，在自定义回调中手动调用本库内部逻辑。
+
+---
+
+### 6. HCSR04 超声波测距模块
+
+支持 HC-SR04 超声波测距传感器，返回以毫米（mm）为单位的距离。
+
+<img src="images/1-11.png" alt="1-11" style="zoom: 67%;" />
+
+#### 硬件连接
+
+| HCSR04 引脚 | STM32 引脚 | 说明 |
+|------------|-----------|------|
+| VCC | 5V | 电源（注意：需要 5V 供电） |
+| GND | GND | 公共地 |
+| Trig | GPIO 输出（PB4） | 触发引脚，输出 ≥10 µs 高电平脉冲 |
+| Echo | GPIO 输入（PB3） | 回波引脚，高电平宽度对应往返时间 |
+
+#### CubeMX 配置
+
+**添加路径：**
+
+- 点击 `项目` -> 点击 `属性` -> 点击 `C/C++ 常规` -> 点击 `路径和符号` -> 在 `包含` 中添加 `Devices/HCSR04`
+
+  ![1-12](images/1-12.png)
+
+**GPIO 配置：**
+
+- 选择一个 GPIO 引脚（如 PB4）设置为 **GPIO_Output**，User Label 设置为 **HCSR04_TRIG**
+
+- 选择另一个 GPIO 引脚（如 PB3）设置为 **GPIO_Input**，User Label 设置为 **HCSR04_ECHO**
+
+  ![1-13](images/1-13.png)
+
+- Trig 引脚：GPIO output level **Low**、GPIO mode **Push Pull**、Speed **Low**
+
+- Echo 引脚：GPIO Pull-up/Pull-down **No pull-up and no pull-down**
+
+  ![1-14](images/1-14.png)
+
+  ![1-15](images/1-15.png)
+
+**定时器配置：**
+
+- 选择一个空闲的通用定时器（如 TIM4），设置 **Internal Clock** 模式
+
+- Prescaler (PSC)：**71**（72 MHz / 72 = 1 MHz 定时器时钟）
+
+- Counter Mode：**Up**
+
+- Counter Period (ARR)：**9**（溢出周期 = 10 / 1 MHz = 10 µs）
+
+- 进入 **NVIC Settings**，勾选 **TIMx global interrupt**（开启溢出中断）
+
+  ![1-16](images/1-16.png)
+
+- 其他选项保持默认配置
+
+#### config.h 配置
+
+```c
+// 使能 HCSR04 模块
+#define DEVICE_HCSR04   1
+#if DEVICE_HCSR04
+    #include "tim.h"
+    #include "gpio.h"
+    // 计时定时器
+    #define HCSR04_TIM              htim4
+    // GPIO 控制宏
+    #define HCSR04_TRIG(x)          HAL_GPIO_WritePin(HCSR04_TRIG_GPIO_Port, HCSR04_TRIG_Pin, (x))
+    #define HCSR04_ECHO             HAL_GPIO_ReadPin(HCSR04_ECHO_GPIO_Port, HCSR04_ECHO_Pin)
+#endif
+```
+
+#### API 接口
+
+```c
+void    HCSR04_Init(void);   // 初始化（使能 DWT 微秒延时并启动定时器中断）
+int16_t HCSR04_Read(void);   // 阻塞式测距，返回距离（mm），超出量程返回 0
+```
+
+#### 使用示例
+
+```c
+#include "HCSR04.h"
+#include "OLED.h"  // 可选：用于显示距离
+
+int main(void)
+{
+    // 初始化 HCSR04
+    HCSR04_Init();
+
+    // 初始化 OLED 显示
+    OLED_Init();
+    OLED_Clear();
+    OLED_ShowString(1, 1, "HCSR04 Test");
+
+    while (1)
+    {
+        int16_t dist = HCSR04_Read();
+
+        OLED_ShowString(2, 1, "Dist:");
+        if (dist > 0)
+        {
+            OLED_ShowNum(2, 7, (uint32_t)dist, 4);
+            OLED_ShowString(2, 12, "mm");
+        }
+        else
+        {
+            OLED_ShowString(2, 7, "---- ");
+        }
+
+        HAL_Delay(60);
+    }
+}
+```
+
+> **注意**：HCSR04 库内部已实现 `HAL_TIM_PeriodElapsedCallback`（覆盖 HAL 弱定义）。
+> 若项目中其他地方也需要该回调，请删除 HCSR04.c 中的 `HAL_TIM_PeriodElapsedCallback`，在自定义回调中手动调用本库内部逻辑。
 
 ---
 

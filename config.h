@@ -49,4 +49,13 @@
     #define SERIAL_NUMS     3       
 #endif
 
+#define DEVICE_HCSR04   0
+#if DEVICE_HCSR04
+    #include "tim.h"
+    #include "gpio.h"
+    #define HCSR04_TIM                  htim4
+    #define HCSR04_TRIG(x)              HAL_GPIO_WritePin(HCSR04_TRIG_GPIO_Port, HCSR04_TRIG_Pin, (x))
+    #define HCSR04_ECHO                 HAL_GPIO_ReadPin(HCSR04_ECHO_GPIO_Port, HCSR04_ECHO_Pin)
+#endif
+
 #endif

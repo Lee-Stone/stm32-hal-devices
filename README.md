@@ -21,6 +21,7 @@
   - [2. MPU6050 六轴传感器模块](#2-mpu6050-六轴传感器模块)
   - [3. TB6612 电机驱动模块](#3-tb6612-电机驱动模块)
   - [4. Encoder 编码器模块](#4-encoder-编码器模块)
+  - [5. Serial 串口模块](#5-serial-串口模块)
 - [📧 联系方式](#-联系方式)
 
 ## 📖 项目简介
@@ -36,6 +37,7 @@ stm32-hal-devices/
 ├── MPU6050/                # MPU6050 六轴传感器模块
 ├── TB6612/                	# TB6612 双路电机驱动模块
 ├── Encoder/               	# 轮式霍尔AB编码器模块  
+├── Serial/                 # Serial 串口模块
 ├── images/
 ├── README.md              
 └── LICENSE
@@ -43,7 +45,7 @@ stm32-hal-devices/
 
 ## 🚀 快速开始
 
-### 1. 安装STM32CubeIDE
+### 1. 安装 STM32CubeIDE
 
 - 下载并安装：[STM32CubeIDE](https://www.st.com.cn/zh/development-tools/stm32cubeide.html)。
 
@@ -89,7 +91,7 @@ stm32-hal-devices/
 
   ![8](images/8.png)
 
-### 3. 导入Devices库
+### 3. 导入 Devices 库
 
 - 右键点击工程 -> 点击 `显示位置` -> 点击 `系统资源管理器`。
 
@@ -107,7 +109,7 @@ stm32-hal-devices/
 
   ![11](images/11.png)
 
-  ![12](images/12.png)
+  <img src="images/12.png" alt="12"  />
 
 - 点击 `应用并关闭` -> 点击工具栏🔨图标编译无报错则成功导入Devices库。
 
@@ -624,6 +626,114 @@ int main(void)
     }
 }
 ```
+
+---
+
+### 5. Serial 串口模块
+
+支持多路 USART 串口，基于结构体实例管理，每路串口独立互不干扰。使用中断接收模式，每收到 1 字节自动置位标志位，主循环轮询标志位即可读取，无需阻塞等待。
+
+![1-9](images/1-9.png)
+
+#### 硬件连接
+
+| 串口引脚 | STM32引脚         | 说明         |
+| -------- | ----------------- | ------------ |
+| RXD      | USART3_TX（PB10） | 串口接收引脚 |
+| TXD      | USART3_RX（PB11） | 串口发送引脚 |
+| VCC      | 5V                | 电源         |
+| GND      | GND               | 公共地       |
+
+**CubeMX 配置**
+
+**添加路径：**
+
+- 点击 `项目` -> 点击 `属性` -> 点击 `C/C++ 常规` -> 点击 `路径和符号` -> 在 `包含` 中添加 `Devices/Serial`
+
+  ![1-8](../../../../project/基础智能小车开发教程/文档资料/images/1-8.png)
+
+**USART 配置：**
+
+- 选择两个串口引脚（例如PB10、PB11）用于串口发送和接收
+
+- 分别设置为 **USART3_TX** 和 **USART3_RX**
+
+  ![1-7](images/1-7.png)
+
+- 找到 **USART3**，将 Mode 设置为 **Asynchronous**
+
+- Baud Rate：**115200**
+
+- Word Length：**8 Bits**、Parity：**None**、Stop Bits：**1**
+
+- 进入 **NVIC Settings**，勾选 **USART3 global interrupt**（开启接收中断）
+
+- 其他选项保持默认配置
+
+  ![1-8](images/1-8.png)
+
+#### config.h 配置
+
+```c
+// 使能 Serial 模块
+#define DEVICE_SERIAL   1
+#if DEVICE_SERIAL
+    #include "usart.h"
+    #define SERIAL_NUMS     3   // 最多同时使用的串口数量
+#endif
+```
+
+#### API 接口
+
+```c
+void Serial_Init(Serial *serial, UART_HandleTypeDef *huart); 	// 初始化串口实例并启动中断接收
+void Serial_Printf(Serial *serial, const char *fmt, ...); 		// 格式化发送字符串（类 printf，阻塞直到发送完成）
+bool Serial_Received(Serial *serial); 							// 查询是否收到新字节
+unsigned char Serial_Read(Serial *serial); 						// 收到的字节
+```
+
+#### 使用示例
+
+```c
+#include "Serial.h"
+
+// 声明串口实例（全局）
+Serial Serial1;
+Serial Serial2;
+
+int main(void)
+{
+    // 在 HAL_Init 和 MX_USARTx_UART_Init 之后初始化
+    Serial_Init(&Serial1, &huart1);
+    Serial_Init(&Serial2, &huart2);
+
+    Serial_Printf(&Serial1, "Hello from USART1\r\n");
+    Serial_Printf(&Serial2, "Hello from USART2\r\n");
+
+    while (1)
+    {
+        // 判断 Serial1 是否收到新字节
+        if (Serial_Received(&Serial1))
+        {
+            unsigned char byte = Serial_Read(&Serial1);
+            // 将收到的字节回显
+            Serial_Printf(&Serial1, "Recv: 0x%02X\r\n", byte);
+        }
+
+        // 判断 Serial2 是否收到新字节
+        if (Serial_Received(&Serial2))
+        {
+            unsigned char byte = Serial_Read(&Serial2);
+            Serial_Printf(&Serial2, "Recv: 0x%02X\r\n", byte);
+        }
+    }
+}
+```
+
+> **注意**：Serial 库内部已实现 `HAL_UART_RxCpltCallback`（覆盖 HAL 弱定义）。  
+> 若项目中其他地方也需要该回调，请删除 Serial.c 中的 `HAL_UART_RxCpltCallback`，在自定义回调中手动调用本库内部逻辑。
+
+---
 
 ## 📧 联系方式
 

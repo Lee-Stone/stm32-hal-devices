@@ -644,7 +644,7 @@ int main(void)
 | VCC      | 5V                | 电源         |
 | GND      | GND               | 公共地       |
 
-**CubeMX 配置**
+#### **CubeMX 配置**
 
 **添加路径：**
 

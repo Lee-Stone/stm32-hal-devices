@@ -15,9 +15,12 @@
 static Serial  *s_instances[SERIAL_NUMS];
 static uint8_t  s_count = 0;
 
-/* ================================================================
- *  Serial_Init
- * ================================================================ */
+/**
+  * @brief  初始化串口实例并启动中断接收
+  * @param  serial 串口实例指针
+  * @param  huart  HAL UART 句柄指针
+  * @retval 无
+  */
 void Serial_Init(Serial *serial, UART_HandleTypeDef *huart)
 {
     serial->huart   = huart;
@@ -35,9 +38,13 @@ void Serial_Init(Serial *serial, UART_HandleTypeDef *huart)
     HAL_UART_Receive_IT(huart, &serial->rxByte, 1);
 }
 
-/* ================================================================
- *  Serial_Printf
- * ================================================================ */
+/**
+  * @brief  格式化发送字符串（类 printf，阻塞直到发送完成）
+  * @param  serial 串口实例指针
+  * @param  fmt    格式化字符串
+  * @param  ...    可变参数
+  * @retval 无
+  */
 void Serial_Printf(Serial *serial, const char *fmt, ...)
 {
     va_list args, args_copy;
@@ -59,18 +66,23 @@ void Serial_Printf(Serial *serial, const char *fmt, ...)
     va_end(args);
 }
 
-/* ================================================================
- *  Serial_Received
- * ================================================================ */
+/**
+  * @brief  查询是否收到新字节（非阻塞）
+  * @param  serial 串口实例指针
+  * @retval true  有新字节待读取
+  * @retval false 无新数据
+  */
 bool Serial_Received(Serial *serial)
 {
     /* 直接返回标志位，非阻塞，不修改任何状态 */
     return serial->rxFlag != 0U;
 }
 
-/* ================================================================
- *  Serial_Read
- * ================================================================ */
+/**
+  * @brief  读取最近收到的字节并清除接收标志
+  * @param  serial 串口实例指针
+  * @retval 收到的字节
+  */
 unsigned char Serial_Read(Serial *serial)
 {
     unsigned char data = serial->rxData;
@@ -79,18 +91,15 @@ unsigned char Serial_Read(Serial *serial)
     return data;
 }
 
-/* ================================================================
- *  HAL_UART_RxCpltCallback
- *
- *  覆盖 HAL 库的弱定义。每当硬件接收到 1 字节时触发：
- *    1. 在实例表中查找触发中断的 UART 对应的 Serial 实例
- *    2. 将接收到的字节写入 rxData
- *    3. 将 rxFlag 置 1，通知主循环有新数据
- *    4. 重启中断接收，等待下一字节
- *
- *  注意：若项目其他地方也定义了 HAL_UART_RxCpltCallback，
- *  请删除此函数并在自定义回调中手动调用本库的逻辑。
- * ================================================================ */
+/**
+  * @brief  UART 接收完成中断回调（覆盖 HAL 弱定义）
+  * @note   每当硬件接收到 1 字节时触发，将字节写入对应实例的
+  *         rxData 并置位 rxFlag，然后重启中断等待下一字节。
+  *         若项目其他地方也定义了此回调，请删除本函数并在
+  *         自定义回调中手动调用本库的逻辑。
+  * @param  huart 触发中断的 UART 句柄指针
+  * @retval 无
+  */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     for (uint8_t i = 0; i < s_count; i++)

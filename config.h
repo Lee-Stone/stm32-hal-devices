@@ -4,7 +4,7 @@
 #include "main.h"
 #include <stdint.h>
 
-#define DEVICE_OLED     1
+#define DEVICE_OLED     0
 #if DEVICE_OLED 
     #include "gpio.h"
     #define OLED_W_SCL(x)		HAL_GPIO_WritePin(OLED_SCL_GPIO_Port, OLED_SCL_Pin, (x))
@@ -27,7 +27,7 @@
     #define ENCODER_PI                     3.1415926f
 #endif
 
-#define DEVICE_TB6612 1
+#define DEVICE_TB6612 0
 #if DEVICE_TB6612
     #include "gpio.h"
     #include "tim.h"
@@ -43,7 +43,7 @@
     #define BIN2(x)		                   HAL_GPIO_WritePin(TB6612_BIN2_GPIO_Port, TB6612_BIN2_Pin, (x))
 #endif
 
-#define DEVICE_SERIAL   1
+#define DEVICE_SERIAL   0
 #if DEVICE_SERIAL
     #include "usart.h"
     #define SERIAL_NUMS     3       

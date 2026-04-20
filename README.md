@@ -943,30 +943,36 @@ int main(void)
         error = Tracker_Read();
         OLED_ShowSignedFloat(2, 6, error, 1);
 
-        if (error == -4){
+        if (error == -4)
+        {
           // 非阻塞直角左转
           flag = 1;
         }
-        else if (error == 4){
+        else if (error == 4)
+        {
           // 非阻塞直角右转
           flag = 2;
         }
-        else if (error == 0){
+        else if (error == 0)
+        {
           // 检测到回到中线退出直角转弯
           flag = 0;
         }
 
-        if (flag == 0){
+        if (flag == 0)
+        {
           // 非直角，普通转弯，比例控制循迹
           OLED_ShowString(3, 7, "Track");
           TB6612_Motor(1000 + error * 100, 1000 - error * 100);
         }
-        else if (flag == 1){
+        else if (flag == 1)
+        {
           // 直角处理：原地左转
           OLED_ShowString(3, 7, "TurnL");
           TB6612_Motor(-1500, 1500);
         }
-        else if (flag == 2){
+        else if (flag == 2)
+        {
           // 直角处理：原地右转
           OLED_ShowString(3, 7, "TurnR");
           TB6612_Motor(1500, -1500);

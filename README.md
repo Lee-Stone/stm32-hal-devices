@@ -104,7 +104,7 @@ stm32-hal-devices/
 - 右键打开终端，输入以下命令克隆当前工程导入Devices库：
 
   ```bash
-  git clone https://github.com/CaddonThaw/stm32-hal-devices.git Devices
+  git clone https://github.com/Lee-Stone/stm32-hal-devices.git Devices
   ```
 
   ![10](images/10.png)

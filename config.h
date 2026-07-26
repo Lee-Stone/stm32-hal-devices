@@ -84,4 +84,12 @@
     #define W25QXX_CHIP         W25Q16
 #endif
 
+#define DEVICE_AHT20    0
+#if DEVICE_AHT20
+    #include "gpio.h"
+    #define AHT20_W_SCL(x)		HAL_GPIO_WritePin(AHT20_SCL_GPIO_Port, AHT20_SCL_Pin, (x))
+    #define AHT20_W_SDA(x)		HAL_GPIO_WritePin(AHT20_SDA_GPIO_Port, AHT20_SDA_Pin, (x))
+    #define AHT20_R_SDA         HAL_GPIO_ReadPin(AHT20_SDA_GPIO_Port, AHT20_SDA_Pin)
+#endif
+
 #endif

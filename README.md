@@ -26,6 +26,7 @@
   - [7. Tracker 五路循迹模块](#7-tracker-五路循迹模块)
   - [8. AT24CXX 存储模块](#8-at24cxx-存储模块)
   - [9. W25QXX 存储模块](#9-w25qxx-存储模块)
+  - [10. AHT20 温湿度传感器模块](#10-aht20-温湿度传感器模块)
 - [📧 联系方式](#-联系方式)
 
 ## 📖 项目简介
@@ -46,6 +47,7 @@ stm32-hal-devices/
 ├── Tracker/                # 五路循迹传感器模块
 ├── AT24CXX/                # AT24CXX 存储模块
 ├── W25QXX/                 # W25QXX 存储模块
+├── AHT20/                  # AHT20 温湿度传感器模块
 ├── images/
 ├── README.md              
 └── LICENSE
@@ -1235,6 +1237,109 @@ int main(void)
     while (1)
     {
         HAL_Delay(100);
+    }
+}
+```
+
+---
+
+### 10. AHT20 温湿度传感器模块
+
+支持 AHT20 数字温湿度传感器，使用软件模拟 I2C，返回温度（°C）和相对湿度（%RH）。
+
+![2-7](images/2-7.png)
+
+#### 硬件连接
+
+| AHT20 引脚 | STM32 引脚 | 说明 |
+|-----------|-----------|------|
+| VCC | 3.3V | 电源 |
+| GND | GND | 公共地 |
+| SCL | GPIO 输出（PE2） | I2C 时钟线（软件模拟） |
+| SDA | GPIO 输出（PE3） | I2C 数据线（软件模拟） |
+
+#### CubeMX 配置
+
+**添加路径：**
+
+- 点击 `项目` -> 点击 `属性` -> 点击 `C/C++ 常规` -> 点击 `路径和符号` -> 在 `包含` 中添加 `Devices/AHT20`
+
+  ![2-8](images/2-8.png)
+
+**GPIO 配置：**
+
+- 选择两个 GPIO 引脚（PE2、PE3）
+
+- 设置为 **GPIO_Output**
+
+  ![2-9](images/2-9.png)
+
+- GPIO output level：SCL 设为 **Push-Pull**，SDA 设为 **Open-Drain**
+
+- GPIO mode：**High**
+
+- Maximum output speed：**High**
+
+- User Label：SCL 引脚设置为 **AHT20_SCL**、SDA 引脚设置为 **AHT20_SDA**
+
+- 其他选项保持默认配置
+
+  ![2-10](images/2-10.png)
+
+  ![2-11](images/2-11.png)
+
+#### config.h 配置
+
+```c
+// 使能 AHT20 模块
+#define DEVICE_AHT20    1
+#if DEVICE_AHT20
+    #include "gpio.h"
+    // GPIO 控制宏（CubeMX 生成的引脚名称）
+    #define AHT20_W_SCL(x)       HAL_GPIO_WritePin(AHT20_SCL_GPIO_Port, AHT20_SCL_Pin, (x))
+    #define AHT20_W_SDA(x)       HAL_GPIO_WritePin(AHT20_SDA_GPIO_Port, AHT20_SDA_Pin, (x))
+    #define AHT20_R_SDA          HAL_GPIO_ReadPin(AHT20_SDA_GPIO_Port, AHT20_SDA_Pin)
+#endif
+```
+
+#### API 接口
+
+```c
+void     AHT20_Init(void);                       // 初始化（软复位 + 校准）
+uint8_t  AHT20_ReadStatus(void);                 // 读取状态字节（bit[3]=1 已校准）
+void     AHT20_ReadData(float *temp, float *humi);  // 读取温湿度（°C, %RH）
+```
+
+#### 使用示例
+
+```c
+#include "AHT20.h"
+#include "OLED.h"
+
+int main(void)
+{
+    float temp, humi;
+
+    OLED_Init();
+    OLED_Clear();
+
+    AHT20_Init();
+
+    OLED_ShowString(1, 1, "AHT20 Test");
+
+    while (1)
+    {
+        AHT20_ReadData(&temp, &humi);
+
+        OLED_ShowString(2, 1, "Temp:");
+        OLED_ShowSignedFloat(2, 7, temp, 3);
+        OLED_ShowString(2, 14, "C");
+
+        OLED_ShowString(3, 1, "Humi:");
+        OLED_ShowSignedFloat(3, 7, humi, 3);
+        OLED_ShowString(3, 14, "%");
+
+        HAL_Delay(1000);
     }
 }
 ```

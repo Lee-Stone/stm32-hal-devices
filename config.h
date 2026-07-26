@@ -68,4 +68,11 @@
     #define R2  HAL_GPIO_ReadPin(TRACKER_R2_GPIO_Port, TRACKER_R2_Pin)
 #endif
 
+#define DEVICE_AT24CXX  0
+#if DEVICE_AT24CXX
+    #include "i2c.h"
+    #define AT24CXX_I2C         hi2c2
+    #define AT24CXX_CHIP        AT24C02
+#endif
+
 #endif

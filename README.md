@@ -24,6 +24,7 @@
   - [5. Serial 串口模块](#5-serial-串口模块)
   - [6. HCSR04 超声波测距模块](#6-hcsr04-超声波测距模块)
   - [7. Tracker 五路循迹模块](#7-tracker-五路循迹模块)
+  - [8. AT24CXX 存储模块](#8-at24cxx-存储模块)
 - [📧 联系方式](#-联系方式)
 
 ## 📖 项目简介
@@ -42,6 +43,7 @@ stm32-hal-devices/
 ├── Serial/                 # Serial 串口模块
 ├── HCSR04/                 # HC-SR04 超声波测距模块
 ├── Tracker/                # 五路循迹传感器模块
+├── AT24CXX/                # AT24CXX 存储模块
 ├── images/
 ├── README.md              
 └── LICENSE
@@ -977,6 +979,116 @@ int main(void)
           OLED_ShowString(3, 7, "TurnR");
           TB6612_Motor(1500, -1500);
         }
+    }
+}
+```
+
+---
+
+### 8. AT24CXX 存储模块
+
+支持 AT24C01 ~ AT24C512 系列 I2C EEPROM 芯片，默认使用 AT24C02，使用硬件 I2C。更换芯片型号后内存大小、页大小、地址宽度自动适配。
+
+![1-21](images/1-21.png)
+
+#### 硬件连接
+
+| AT24CXX 引脚 | STM32 引脚 | 说明 |
+|-------------|-----------|------|
+| VCC | 3.3V | 电源 |
+| GND | GND | 公共地 |
+| SCL | I2C2_SCL（PB10） | I2C 时钟线 |
+| SDA | I2C2_SDA（PB11） | I2C 数据线 |
+| A0 | GND | 地址引脚 0（接地） |
+| A1 | GND | 地址引脚 1（接地） |
+| A2 | GND | 地址引脚 2（接地） |
+| WP | GND | 写保护（接地 = 允许写入） |
+
+#### CubeMX 配置
+
+**添加路径：**
+
+- 点击 `项目` -> 点击 `属性` -> 点击 `C/C++ 常规` -> 点击 `路径和符号` -> 在 `包含` 中添加 `Devices/AT24CXX`
+
+  ![1-22](images/1-22.png)
+
+**I2C 配置：**
+
+- 选择两个 I2C 引脚（例如 PB10、PB11）
+
+- 分别设置为 **I2C2_SCL** 和 **I2C2_SDA**
+
+  ![1-23](images/1-23.png)
+
+- 找到 **I2C2** 使能 **I2C** 模式
+
+- I2C Speed Mode 设置为 **Standard Mode**（100kHz）
+
+- 其他选项保持默认配置
+
+  ![2-1](images/2-1.png)
+
+#### config.h 配置
+
+```c
+// 使能 AT24CXX 模块
+#define DEVICE_AT24CXX  1
+#if DEVICE_AT24CXX
+    #include "i2c.h"
+    // I2C 接口与芯片型号
+    #define AT24CXX_I2C         hi2c2
+    #define AT24CXX_CHIP        AT24C02
+#endif
+```
+
+#### API 接口
+
+```c
+void     AT24CXX_Init(void);                            // 初始化（检测设备是否存在）
+
+// 单字节读写
+void     AT24CXX_WriteByte(uint16_t addr, uint8_t data);       // 写入单个字节
+uint8_t  AT24CXX_ReadByte(uint16_t addr);                      // 读取单个字节
+
+// 多字节读写
+void     AT24CXX_Write(uint16_t addr, uint8_t *data, uint16_t len);  // 写入（自动跨页）
+void     AT24CXX_Read(uint16_t addr, uint8_t *data, uint16_t len);   // 读取
+
+// 整片操作
+void     AT24CXX_EraseChip(void);                        // 全片擦除（所有字节写为 0xFF）
+```
+
+#### 使用示例
+
+```c
+#include "AT24CXX.h"
+#include "OLED.h"
+
+int main(void)
+{
+    uint8_t wbuf[] = "AT24C02 OK!";
+    uint8_t rbuf[16] = {0};
+
+    OLED_Init();
+    OLED_Clear();
+
+    AT24CXX_Init();
+
+    /* 写入字符串到地址 0x00 */
+    AT24CXX_Write(0x00, wbuf, sizeof(wbuf));
+
+    /* 读回验证 */
+    AT24CXX_Read(0x00, rbuf, sizeof(wbuf));
+
+    OLED_ShowString(1, 1, "AT24C02 Test");
+    OLED_ShowString(2, 1, "Write:");
+    OLED_ShowString(2, 8, (char *)wbuf);
+    OLED_ShowString(3, 1, "Read:");
+    OLED_ShowString(3, 8, (char *)rbuf);
+
+    while (1)
+    {
+        HAL_Delay(100);
     }
 }
 ```

@@ -25,6 +25,7 @@
   - [6. HCSR04 超声波测距模块](#6-hcsr04-超声波测距模块)
   - [7. Tracker 五路循迹模块](#7-tracker-五路循迹模块)
   - [8. AT24CXX 存储模块](#8-at24cxx-存储模块)
+  - [9. W25QXX 存储模块](#9-w25qxx-存储模块)
 - [📧 联系方式](#-联系方式)
 
 ## 📖 项目简介
@@ -44,6 +45,7 @@ stm32-hal-devices/
 ├── HCSR04/                 # HC-SR04 超声波测距模块
 ├── Tracker/                # 五路循迹传感器模块
 ├── AT24CXX/                # AT24CXX 存储模块
+├── W25QXX/                 # W25QXX 存储模块
 ├── images/
 ├── README.md              
 └── LICENSE
@@ -1083,6 +1085,150 @@ int main(void)
     OLED_ShowString(1, 1, "AT24C02 Test");
     OLED_ShowString(2, 1, "Write:");
     OLED_ShowString(2, 8, (char *)wbuf);
+    OLED_ShowString(3, 1, "Read:");
+    OLED_ShowString(3, 8, (char *)rbuf);
+
+    while (1)
+    {
+        HAL_Delay(100);
+    }
+}
+```
+
+---
+
+### 9. W25QXX 存储模块
+
+支持 W25Q16 ~ W25Q256 系列 SPI NOR Flash 芯片，默认使用 W25Q16，使用硬件 SPI。更换芯片型号后内存大小自动适配。
+
+![2-2](images/2-2.png)
+
+#### 硬件连接
+
+| W25QXX 引脚 | STM32 引脚 | 说明 |
+|------------|-----------|------|
+| VCC | 3.3V | 电源 |
+| GND | GND | 公共地 |
+| CS | GPIO 输出（PA4） | 片选（低有效） |
+| SCK | SPI1_SCK（PA5） | SPI 时钟线 |
+| MISO | SPI1_MISO（PA6） | SPI 主机输入 |
+| MOSI | SPI1_MOSI（PA7） | SPI 主机输出 |
+
+#### CubeMX 配置
+
+**添加路径：**
+
+- 点击 `项目` -> 点击 `属性` -> 点击 `C/C++ 常规` -> 点击 `路径和符号` -> 在 `包含` 中添加 `Devices/W25QXX`
+
+  ![2-3](images/2-3.png)
+
+**SPI 配置：**
+
+- 选择三个 SPI 引脚（PA5、PA6、PA7）
+
+- 分别设置为 **SPI1_SCK**、**SPI1_MISO**、**SPI1_MOSI**
+
+  ![2-4](images/2-4.png)
+
+- 找到 **SPI1** 使能 **Full-Duplex Master** 模式
+
+- Data Size：**8 Bits**
+
+- Clock Polarity (CPOL)：**Low**
+
+- Clock Phase (CPHA)：**1 Edge**
+
+- NSS Signal Type：**Software**
+
+- Prescaler：二分频以上即可（W25QXX 最高支持 133MHz）
+
+- 其他选项保持默认配置
+
+  ![2-5](images/2-5.png)
+
+**GPIO 配置（CS 片选）：**
+
+- 选择一个 GPIO 引脚（PA4）设置为 **GPIO_Output**
+
+  ![2-6](images/2-6.png)
+
+- GPIO output level：**High**（初始不选中）
+
+- GPIO mode：**Push Pull**
+
+- Maximum output speed：**High**
+
+- User Label 设置为 **W25QXX_CS**
+
+- 其他选项保持默认配置
+
+#### config.h 配置
+
+```c
+// 使能 W25QXX 模块
+#define DEVICE_W25QXX   1
+#if DEVICE_W25QXX
+    #include "spi.h"
+    #include "gpio.h"
+    // SPI 接口与芯片型号
+    #define W25QXX_SPI          hspi1
+    #define W25QXX_CS(x)        HAL_GPIO_WritePin(W25QXX_CS_GPIO_Port, W25QXX_CS_Pin, (x))
+    #define W25QXX_CHIP         W25Q16
+#endif
+```
+
+#### API 接口
+
+```c
+void     W25QXX_Init(void);                              // 初始化
+void     W25QXX_ReadID(uint8_t *mid, uint16_t *did);     // 读取 JEDEC ID
+
+// 读操作
+void     W25QXX_Read(uint32_t addr, uint8_t *data, uint32_t len);  // 读取数据
+
+// 编程（Flash 需先擦除再写入）
+void     W25QXX_PageProgram(uint32_t addr, uint8_t *data, uint16_t len); // 页编程（≤256 字节）
+void     W25QXX_Write(uint32_t addr, uint8_t *data, uint32_t len);       // 写入（自动擦除+跨页）
+
+// 擦除
+void     W25QXX_SectorErase(uint32_t addr);             // 扇区擦除（4KB）
+void     W25QXX_BlockErase32K(uint32_t addr);           // 块擦除（32KB）
+void     W25QXX_BlockErase64K(uint32_t addr);           // 块擦除（64KB）
+void     W25QXX_ChipErase(void);                        // 整片擦除
+```
+
+#### 使用示例
+
+```c
+#include "W25QXX.h"
+#include "OLED.h"
+
+int main(void)
+{
+    uint8_t mid;
+    uint16_t did;
+    uint8_t wbuf[] = "W25Q16 OK!";
+    uint8_t rbuf[16] = {0};
+
+    OLED_Init();
+    OLED_Clear();
+
+    W25QXX_Init();
+
+    /* 读取 JEDEC ID */
+    W25QXX_ReadID(&mid, &did);
+
+    OLED_ShowString(1, 1, "W25Q16 Test");
+    OLED_ShowString(2, 1, "ID:");
+    OLED_ShowHexNum(2, 5, mid, 2);
+    OLED_ShowHexNum(2, 8, (uint8_t)(did >> 8), 2);
+    OLED_ShowHexNum(2, 11, (uint8_t)(did), 2);
+
+    /* 擦除扇区 0，写入并读回验证 */
+    W25QXX_SectorErase(0);
+    W25QXX_Write(0x00, wbuf, sizeof(wbuf));
+    W25QXX_Read(0x00, rbuf, sizeof(wbuf));
+
     OLED_ShowString(3, 1, "Read:");
     OLED_ShowString(3, 8, (char *)rbuf);
 

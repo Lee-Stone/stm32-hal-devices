@@ -75,4 +75,13 @@
     #define AT24CXX_CHIP        AT24C02
 #endif
 
+#define DEVICE_W25QXX   0
+#if DEVICE_W25QXX
+    #include "spi.h"
+    #include "gpio.h"
+    #define W25QXX_SPI          hspi1
+    #define W25QXX_CS(x)        HAL_GPIO_WritePin(W25QXX_CS_GPIO_Port, W25QXX_CS_Pin, (x))
+    #define W25QXX_CHIP         W25Q16
+#endif
+
 #endif

@@ -27,6 +27,7 @@
   - [8. AT24CXX 存储模块](#8-at24cxx-存储模块)
   - [9. W25QXX 存储模块](#9-w25qxx-存储模块)
   - [10. AHT20 温湿度传感器模块](#10-aht20-温湿度传感器模块)
+  - [11. ST7789 显示模块](#11-st7789-显示模块)
 - [📧 联系方式](#-联系方式)
 
 ## 📖 项目简介
@@ -48,6 +49,7 @@ stm32-hal-devices/
 ├── AT24CXX/                # AT24CXX 存储模块
 ├── W25QXX/                 # W25QXX 存储模块
 ├── AHT20/                  # AHT20 温湿度传感器模块
+├── ST7789/                 # ST7789 显示模块
 ├── images/
 ├── README.md              
 └── LICENSE
@@ -1340,6 +1342,164 @@ int main(void)
         OLED_ShowString(3, 14, "%");
 
         HAL_Delay(1000);
+    }
+}
+```
+
+---
+
+### 11. ST7789 显示模块
+
+支持 240×320 分辨率 ST7789V 驱动芯片 TFT LCD 显示屏，使用硬件 SPI + DMA 传输，RGB565 颜色格式。
+
+![2-12](images/2-12.png)
+
+#### 硬件连接
+
+| ST7789 引脚 | STM32 引脚 | 说明 |
+|------------|-----------|------|
+| VCC | 3.3V | 电源 |
+| GND | GND | 公共地 |
+| SCK | SPI3_SCK（PB3） | SPI 时钟线 |
+| MOSI | SPI3_MOSI（PB5） | SPI 主机输出 |
+| MISO | SPI3_MISO（PB4） | SPI 主机输入（未使用） |
+| CS | GPIO 输出（PA15） | 片选（低有效） |
+| DC | GPIO 输出（PB0） | 数据/命令选择（高=数据） |
+| RST | GPIO 输出（PC7） | 硬件复位（低有效） |
+| BLED | GPIO 输出（PB1） | 背光控制（高电平点亮） |
+
+#### CubeMX 配置
+
+**添加路径：**
+
+- 点击 `项目` -> 点击 `属性` -> 点击 `C/C++ 常规` -> 点击 `路径和符号` -> 在 `包含` 中添加 `Devices/ST7789`
+
+  ![2-13](images/2-13.png)
+
+**SPI 配置：**
+
+- 选择三个 SPI 引脚（PB3、PB4、PB5）
+
+- 分别设置为 **SPI3_SCK**、**SPI3_MISO**、**SPI3_MOSI**
+
+  ![2-14](images/2-14.png)
+
+- 找到 **SPI3** 使能 **Full-Duplex Master** 模式
+
+- Data Size：**8 Bits**
+
+- Clock Polarity (CPOL)：**Low**
+
+- Clock Phase (CPHA)：**1 Edge**
+
+- NSS Signal Type：**Software**
+
+- Prescaler：四分频以上（ST7789 最高支持 62.5MHz）
+
+- 其他选项保持默认配置
+
+  ![2-15](images/2-15.png)
+
+**DMA 配置：**
+
+- 进入 **DMA Settings** 选项卡，添加 **SPI3_TX**
+
+- DMA Request：**SPI3_TX**
+
+- Direction：**Memory To Peripheral**
+
+- Priority：**High**
+
+- Mode：**Normal**
+
+- Data Width：**Byte**
+
+- 其他选项保持默认配置
+
+  ![2-16](images/2-16.png)
+
+**GPIO 配置：**
+
+- 选择 4 个 GPIO 引脚（PA15、PB0、PC7、PB1）设置为 **GPIO_Output**
+
+  ![2-17](images/2-17.png)
+
+- GPIO output level：**Push-Pull**
+
+- GPIO mode：CS 设为 **High**（初始不选中）、DC/RST/BLED 设为 **High**
+
+- Maximum output speed：**High**
+
+- User Label 分别设置为 **ST7789_CS**、**ST7789_DC**、**ST7789_RST**、**ST7789_BLED**
+
+- 其他选项保持默认配置
+
+  ![2-18](images/2-18.png)
+
+> **注意**：PB3 默认是 JTDO（JTAG 调试），需要在 SYS → Debug 中选择 **Serial Wire** 来释放 PB3 给 SPI3 使用。
+
+#### config.h 配置
+
+```c
+// 使能 ST7789 模块
+#define DEVICE_ST7789   1
+#if DEVICE_ST7789
+    #include "spi.h"
+    #include "gpio.h"
+    #include "dma.h"
+    // SPI 接口与控制引脚
+    #define ST7789_SPI          hspi3
+    #define ST7789_CS(x)        HAL_GPIO_WritePin(ST7789_CS_GPIO_Port, ST7789_CS_Pin, (x))
+    #define ST7789_DC(x)        HAL_GPIO_WritePin(ST7789_DC_GPIO_Port, ST7789_DC_Pin, (x))
+    #define ST7789_RST(x)       HAL_GPIO_WritePin(ST7789_RST_GPIO_Port, ST7789_RST_Pin, (x))
+    #define ST7789_BLED(x)      HAL_GPIO_WritePin(ST7789_BLED_GPIO_Port, ST7789_BLED_Pin, (x))
+#endif
+```
+
+#### API 接口
+
+```c
+// 初始化
+void     ST7789_Init(void);                              // 初始化（复位 + 寄存器配置）
+
+// 绘图
+void     ST7789_Clear(uint16_t color);                   // 全屏填充
+void     ST7789_DrawPoint(uint16_t x, uint16_t y, uint16_t color);   // 画单个像素点
+void     ST7789_FillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);  // 填充矩形
+
+// 文字与图片
+void     ST7789_WriteString(uint16_t x, uint16_t y, char *str, uint16_t color);     // 写字符串（8×16 字体）
+void     ST7789_DrawImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint16_t *data);    // 显示图片（RGB565）
+
+// 底层接口
+void     ST7789_SetWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h);    // 设置像素写入窗口
+void     ST7789_WriteData(const uint8_t *data, uint32_t len);                  // DMA 批量写入像素
+```
+
+#### 使用示例
+
+```c
+#include "ST7789.h"
+#include "OLED.h"
+
+int main(void)
+{
+    ST7789_Init();
+    ST7789_Clear(ST7789_COLOR_BLACK);
+
+    /* 显示字符串 */
+    ST7789_WriteString(10, 10, "STM32 HAL", ST7789_COLOR_WHITE);
+    ST7789_WriteString(10, 30, "ST7789 LCD", ST7789_COLOR_YELLOW);
+
+    /* 画矩形 */
+    ST7789_FillRect(50, 60, 100, 80, ST7789_COLOR_BLUE);
+
+    /* 画点 */
+    ST7789_DrawPoint(100, 100, ST7789_COLOR_RED);
+
+    while (1)
+    {
+        HAL_Delay(100);
     }
 }
 ```

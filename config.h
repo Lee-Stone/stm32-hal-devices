@@ -43,7 +43,7 @@
     #define BIN2(x)		                   HAL_GPIO_WritePin(TB6612_BIN2_GPIO_Port, TB6612_BIN2_Pin, (x))
 #endif
 
-#define DEVICE_SERIAL   0
+#define DEVICE_SERIAL   1
 #if DEVICE_SERIAL
     #include "usart.h"
     #define SERIAL_NUMS     3       
@@ -90,6 +90,18 @@
     #define AHT20_W_SCL(x)		HAL_GPIO_WritePin(AHT20_SCL_GPIO_Port, AHT20_SCL_Pin, (x))
     #define AHT20_W_SDA(x)		HAL_GPIO_WritePin(AHT20_SDA_GPIO_Port, AHT20_SDA_Pin, (x))
     #define AHT20_R_SDA         HAL_GPIO_ReadPin(AHT20_SDA_GPIO_Port, AHT20_SDA_Pin)
+#endif
+
+#define DEVICE_ST7789   1
+#if DEVICE_ST7789
+    #include "spi.h"
+    #include "gpio.h"
+    #include "dma.h"
+    #define ST7789_SPI          hspi3
+    #define ST7789_CS(x)        HAL_GPIO_WritePin(ST7789_CS_GPIO_Port, ST7789_CS_Pin, (x))
+    #define ST7789_DC(x)        HAL_GPIO_WritePin(ST7789_DC_GPIO_Port, ST7789_DC_Pin, (x))
+    #define ST7789_RST(x)       HAL_GPIO_WritePin(ST7789_RST_GPIO_Port, ST7789_RST_Pin, (x))
+    #define ST7789_BLED(x)      HAL_GPIO_WritePin(ST7789_BLED_GPIO_Port, ST7789_BLED_Pin, (x))
 #endif
 
 #endif

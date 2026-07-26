@@ -1576,6 +1576,7 @@ int main(void)
 
 ```c
 void     XPT2046_Init(void);                       // 初始化
+void     XPT2046_SetRotation(uint8_t rotation);    // 设置方向（与 ST7789 同步）
 uint8_t  XPT2046_IsPressed(void);                  // 是否按下（1 = 按下）
 uint8_t  XPT2046_ReadXY(uint16_t *x, uint16_t *y); // 读取坐标（内部已检查按下，返回 1=有效）
 ```

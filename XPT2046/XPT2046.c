@@ -2,6 +2,11 @@
 
 #if DEVICE_XPT2046
 
+/* ==================== 屏幕参数（运行时可变） ==================== */
+
+uint16_t xpt2046_width  = 320;
+uint16_t xpt2046_height = 240;
+
 /* ==================== 指令定义 ==================== */
 
 #define XPT2046_CMD_X           0x90  /* 读 X 坐标（12 位，差分） */
@@ -72,6 +77,25 @@ void XPT2046_Init(void)
 }
 
 /**
+  * @brief  设置触摸方向（与 ST7789_SetRotation 保持同步）
+  * @param  rotation 旋转模式：0=竖屏 1=横屏 2=竖屏翻转 3=横屏翻转
+  * @retval 无
+  */
+void XPT2046_SetRotation(uint8_t rotation)
+{
+    if (rotation & 0x01)
+    {
+        xpt2046_width  = 320;
+        xpt2046_height = 240;
+    }
+    else
+    {
+        xpt2046_width  = 240;
+        xpt2046_height = 320;
+    }
+}
+
+/**
   * @brief  判断是否有触摸
   * @param  无
   * @retval 1 = 按下, 0 = 未按下
@@ -104,17 +128,17 @@ uint8_t XPT2046_ReadXY(uint16_t *x, uint16_t *y)
     raw_y += xpt2046_read_adc(XPT2046_CMD_Y);
     raw_y >>= 1;
 
-    /* 映射到屏幕坐标（横屏 320×240） */
-    tmp = ((int32_t)(raw_x - XPT2046_X_MIN) * 319)
+    /* 映射到屏幕坐标 */
+    tmp = ((int32_t)(raw_x - XPT2046_X_MIN) * (XPT2046_WIDTH - 1))
         / (XPT2046_X_MAX - XPT2046_X_MIN);
-    if (tmp < 0)   tmp = 0;
-    if (tmp > 319) tmp = 319;
+    if (tmp < 0)                    tmp = 0;
+    if (tmp > XPT2046_WIDTH - 1)   tmp = XPT2046_WIDTH - 1;
     *x = (uint16_t)tmp;
 
-    tmp = ((int32_t)(raw_y - XPT2046_Y_MIN) * 239)
+    tmp = ((int32_t)(raw_y - XPT2046_Y_MIN) * (XPT2046_HEIGHT - 1))
         / (XPT2046_Y_MAX - XPT2046_Y_MIN);
-    if (tmp < 0)   tmp = 0;
-    if (tmp > 239) tmp = 239;
+    if (tmp < 0)                     tmp = 0;
+    if (tmp > XPT2046_HEIGHT - 1)   tmp = XPT2046_HEIGHT - 1;
     *y = (uint16_t)tmp;
 
     return 1;

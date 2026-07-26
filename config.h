@@ -104,4 +104,14 @@
     #define ST7789_BLED(x)      HAL_GPIO_WritePin(ST7789_BLED_GPIO_Port, ST7789_BLED_Pin, (x))
 #endif
 
+#define DEVICE_XPT2046  0
+#if DEVICE_XPT2046
+    #include "gpio.h"
+    #define XPT2046_CLK(x)      HAL_GPIO_WritePin(XPT2046_CLK_GPIO_Port, XPT2046_CLK_Pin, (x))
+    #define XPT2046_CS(x)       HAL_GPIO_WritePin(XPT2046_CS_GPIO_Port, XPT2046_CS_Pin, (x))
+    #define XPT2046_DIN(x)      HAL_GPIO_WritePin(XPT2046_DIN_GPIO_Port, XPT2046_DIN_Pin, (x))
+    #define XPT2046_DO          HAL_GPIO_ReadPin(XPT2046_DO_GPIO_Port, XPT2046_DO_Pin)
+    #define XPT2046_IRQ         HAL_GPIO_ReadPin(XPT2046_IRQ_GPIO_Port, XPT2046_IRQ_Pin)
+#endif
+
 #endif

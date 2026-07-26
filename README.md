@@ -28,6 +28,7 @@
   - [9. W25QXX 存储模块](#9-w25qxx-存储模块)
   - [10. AHT20 温湿度传感器模块](#10-aht20-温湿度传感器模块)
   - [11. ST7789 显示模块](#11-st7789-显示模块)
+  - [12. XPT2046 触摸模块](#12-xpt2046-触摸模块)
 - [📧 联系方式](#-联系方式)
 
 ## 📖 项目简介
@@ -50,6 +51,7 @@ stm32-hal-devices/
 ├── W25QXX/                 # W25QXX 存储模块
 ├── AHT20/                  # AHT20 温湿度传感器模块
 ├── ST7789/                 # ST7789 显示模块
+├── XPT2046/                # XPT2046 触摸模块
 ├── images/
 ├── README.md              
 └── LICENSE
@@ -1500,6 +1502,113 @@ int main(void)
     while (1)
     {
         HAL_Delay(100);
+    }
+}
+```
+
+---
+
+### 12. XPT2046 触摸模块
+
+支持 XPT2046 四线电阻触摸控制器，使用软件模拟 SPI，返回映射到屏幕分辨率的触摸坐标。
+
+![2-19](images/2-19.png)
+
+#### 硬件连接
+
+| XPT2046 引脚 | STM32 引脚 | 说明 |
+|-------------|-----------|------|
+| VCC | 3.3V | 电源 |
+| GND | GND | 公共地 |
+| CLK | GPIO 输出（PE10） | SPI 时钟线（软件模拟） |
+| CS | GPIO 输出（PE12） | 片选（低有效） |
+| DIN | GPIO 输出（PE13） | SPI 主机输出 |
+| DO | GPIO 输入（PE14） | SPI 主机输入 |
+| IRQ | GPIO 输入（PE15） | 触摸中断（低有效） |
+
+#### CubeMX 配置
+
+**添加路径：**
+
+- 点击 `项目` -> 点击 `属性` -> 点击 `C/C++ 常规` -> 点击 `路径和符号` -> 在 `包含` 中添加 `Devices/XPT2046`
+
+  ![2-20](images/2-20.png)
+
+**GPIO 配置：**
+
+- 选择 3 个输出引脚（PE10/PE12/PE13）和 2 个输入引脚（PE14/PE15）
+
+  ![2-21](images/2-21.png)
+
+- CLK/DIN 引脚：GPIO output level **Push-Pull**、GPIO mode **Low**、Speed **High**
+- CS 引脚：GPIO output level **Push-Pull**、GPIO mode **High**（初始不选中）、Speed **High**
+- User Label：**XPT2046_CLK**、**XPT2046_CS**、**XPT2046_DIN**
+
+  ![2-22](images/2-22.png)
+
+  ![2-23](images/2-23.png)
+
+- DO 引脚：GPIO mode **Input**、Pull-up **Pull-up**
+- IRQ 引脚：GPIO mode **Input**、Pull-up **Pull-up**
+- User Label：**XPT2046_DO**、**XPT2046_IRQ**
+
+  ![2-24](images/2-24.png)
+
+- 其他选项保持默认配置
+
+#### config.h 配置
+
+```c
+// 使能 XPT2046 模块
+#define DEVICE_XPT2046  1
+#if DEVICE_XPT2046
+    #include "gpio.h"
+    // GPIO 控制宏（CubeMX 生成的引脚名称）
+    #define XPT2046_CLK(x)      HAL_GPIO_WritePin(XPT2046_CLK_GPIO_Port, XPT2046_CLK_Pin, (x))
+    #define XPT2046_CS(x)       HAL_GPIO_WritePin(XPT2046_CS_GPIO_Port, XPT2046_CS_Pin, (x))
+    #define XPT2046_DIN(x)      HAL_GPIO_WritePin(XPT2046_DIN_GPIO_Port, XPT2046_DIN_Pin, (x))
+    #define XPT2046_DO          HAL_GPIO_ReadPin(XPT2046_DO_GPIO_Port, XPT2046_DO_Pin)
+    #define XPT2046_IRQ         HAL_GPIO_ReadPin(XPT2046_IRQ_GPIO_Port, XPT2046_IRQ_Pin)
+#endif
+```
+
+#### API 接口
+
+```c
+void     XPT2046_Init(void);                       // 初始化
+uint8_t  XPT2046_IsPressed(void);                  // 是否按下（1 = 按下）
+uint8_t  XPT2046_ReadXY(uint16_t *x, uint16_t *y); // 读取坐标（内部已检查按下，返回 1=有效）
+```
+
+#### 使用示例
+
+```c
+#include "ST7789.h"
+#include "XPT2046.h"
+
+int main(void)
+{
+    uint16_t tx, ty;
+    char buf[32];
+
+    ST7789_Init();
+    XPT2046_Init();
+
+    ST7789_Clear(ST7789_COLOR_BLACK);
+    ST7789_WriteString(10, 10, "Touch Test", ST7789_COLOR_WHITE);
+
+    while (1)
+    {
+        if (XPT2046_ReadXY(&tx, &ty))
+        {
+            /* 中央显示坐标 */
+            sprintf(buf, "X:%-3u Y:%-3u", tx, ty);
+            ST7789_FillRect(100, 110, 120, 16, ST7789_COLOR_BLACK);
+            ST7789_WriteString(100, 110, buf, ST7789_COLOR_YELLOW);
+
+            /* 在触摸点画圆点 */
+            ST7789_FillRect(tx - 1, ty - 1, 3, 3, ST7789_COLOR_RED);
+        }
     }
 }
 ```

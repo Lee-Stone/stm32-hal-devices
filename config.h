@@ -43,7 +43,7 @@
     #define BIN2(x)		                   HAL_GPIO_WritePin(TB6612_BIN2_GPIO_Port, TB6612_BIN2_Pin, (x))
 #endif
 
-#define DEVICE_SERIAL   1
+#define DEVICE_SERIAL   0
 #if DEVICE_SERIAL
     #include "usart.h"
     #define SERIAL_NUMS     3       
@@ -92,7 +92,7 @@
     #define AHT20_R_SDA         HAL_GPIO_ReadPin(AHT20_SDA_GPIO_Port, AHT20_SDA_Pin)
 #endif
 
-#define DEVICE_ST7789   1
+#define DEVICE_ST7789   0
 #if DEVICE_ST7789
     #include "spi.h"
     #include "gpio.h"

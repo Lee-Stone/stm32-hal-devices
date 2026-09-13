@@ -1618,7 +1618,7 @@ int main(void)
 
 ### 13. ICM42688P 六轴传感器模块
 
-![image-20260913200357596](images/image-20260913200357596.png)
+![](images/26.png)
 
 支持三轴陀螺仪和三轴加速度计的 ICM-42688-P 传感器，使用软件 SPI。
 
@@ -1639,20 +1639,20 @@ int main(void)
 
 - 点击 `项目` -> 点击 `属性` -> 点击 `C/C++ 常规` -> 点击 `路径和符号` -> 在 `包含` 中添加 `Devices/ICM42688P`
 
-![image-20260913205145120](images/image-20260913205145120.png)
+![](images/27.png)
 
 **GPIO 配置：**
 
 - 选择 3 个输出引脚（PC0/PC3/PC5）和 1 个输入引脚（PC4）
 
-![image-20260913204012570](images/image-20260913204012570.png)
+![](images/28.png)
 
 - SCL/SDA 引脚：GPIO mode **Push-Pull**、GPIO output level **Low**、Speed **High**
 - CS 引脚：GPIO mode **Push-Pull**、GPIO output level **High**（初始不选中）、Speed **High**
 - SDO 引脚：GPIO mode **Input**、**No pull-up and no pull-down**
 - User Label：**ICM42688P_SCK**、**ICM42688P_MOSI**、**ICM42688P_CS**、**ICM42688P_MISO**
 
-![image-20260913204205855](images/image-20260913204205855.png)
+![](images/29.png)
 
 - 其他选项保持默认配置
 

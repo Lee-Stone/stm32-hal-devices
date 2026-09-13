@@ -114,4 +114,13 @@
     #define XPT2046_IRQ         HAL_GPIO_ReadPin(XPT2046_IRQ_GPIO_Port, XPT2046_IRQ_Pin)
 #endif
 
+#define DEVICE_ICM42688P  0
+#if DEVICE_ICM42688P
+    #include "gpio.h"
+    #define ICM42688P_SCK(x)           HAL_GPIO_WritePin(ICM42688P_SCK_GPIO_Port, ICM42688P_SCK_Pin, (x))
+    #define ICM42688P_CS(x)            HAL_GPIO_WritePin(ICM42688P_CS_GPIO_Port, ICM42688P_CS_Pin, (x))
+    #define ICM42688P_MISO             HAL_GPIO_ReadPin(ICM42688P_MISO_GPIO_Port, ICM42688P_MISO_Pin)
+    #define ICM42688P_MOSI(x)          HAL_GPIO_WritePin(ICM42688P_MOSI_GPIO_Port, ICM42688P_MOSI_Pin, (x))
+#endif
+
 #endif

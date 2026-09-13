@@ -1614,6 +1614,100 @@ int main(void)
 }
 ```
 
+### 13. ICM42688P 六轴传感器模块
+
+![image-20260913200357596](images/image-20260913200357596.png)
+
+支持三轴陀螺仪和三轴加速度计的 ICM-42688-P 传感器，使用软件 SPI。
+
+#### 硬件连接
+
+| ICM-42688-P 引脚 | STM32 引脚 | 说明                   |
+| ---------------- | ---------- | ---------------------- |
+| AP_SCL           | PC0        | SPI 时钟线（软件模拟） |
+| AP_CS            | PC3        | 片选（低有效）         |
+| AP_SDO           | PC4        | SPI 主机输入           |
+| AP_SDA           | PC5        | SPI 主机输出           |
+| VDD / VDDIO      | 3.3V       | 电源                   |
+| GND              | GND        | 公共地                 |
+
+#### CubeMX 配置
+
+**添加路径：**
+
+- 点击 `项目` -> 点击 `属性` -> 点击 `C/C++ 常规` -> 点击 `路径和符号` -> 在 `包含` 中添加 `Devices/ICM42688P`
+
+![image-20260913205145120](images/image-20260913205145120.png)
+
+**GPIO 配置：**
+
+- 选择 3 个输出引脚（PC0/PC3/PC5）和 1 个输入引脚（PC4）
+
+![image-20260913204012570](images/image-20260913204012570.png)
+
+- SCL/SDA 引脚：GPIO mode **Push-Pull**、GPIO output level **Low**、Speed **High**
+- CS 引脚：GPIO mode **Push-Pull**、GPIO output level **High**（初始不选中）、Speed **High**
+- SDO 引脚：GPIO mode **Input**、**No pull-up and no pull-down**
+- User Label：**ICM42688P_SCK**、**ICM42688P_MOSI**、**ICM42688P_CS**、**ICM42688P_MISO**
+
+![image-20260913204205855](images/image-20260913204205855.png)
+
+- 其他选项保持默认配置
+
+#### config.h 配置
+
+~~~c
+// 使能 ICM42688P 模块
+#define DEVICE_ICM42688P  1
+#if DEVICE_ICM42688P
+    #include "gpio.h"
+	// GPIO 控制宏（CubeMX 生成的引脚名称）
+    #define ICM42688P_SCK(x)           HAL_GPIO_WritePin(ICM42688P_SCK_GPIO_Port, ICM42688P_SCK_Pin, (x))
+    #define ICM42688P_CS(x)            HAL_GPIO_WritePin(ICM42688P_CS_GPIO_Port, ICM42688P_CS_Pin, (x))
+    #define ICM42688P_MISO             HAL_GPIO_ReadPin(ICM42688P_MISO_GPIO_Port, ICM42688P_MISO_Pin)
+    #define ICM42688P_MOSI(x)          HAL_GPIO_WritePin(ICM42688P_MOSI_GPIO_Port, ICM42688P_MOSI_Pin, (x))
+#endif
+~~~
+
+#### API 接口
+
+~~~C
+uint8_t  ICM42688P_Init(void);                                      // 初始化 ICM-42688-P
+uint8_t  ICM42688P_ReadID(void);                                    // 读取 WHO_AM_I，正常值为 0x47
+uint8_t  ICM42688P_ReadRaw(ICM42688P_RawData_t *raw_data);          // 读取温度、加速度和角速度原始值
+uint8_t  ICM42688P_ReadData(ICM42688P_Data_t *data);                // 读取加速度 g、角速度 dps 和温度 °C
+~~~
+
+#### 使用示例
+
+~~~C
+#include "ICM42688P.h"
+#include <stdio.h>
+
+//自行将 printf 重定向到串口
+
+int main(void)
+{
+    ICM42688P_Data_t data;
+
+    ICM42688P_Init();
+
+    while (1)
+    {
+        ICM42688P_ReadData(&data);
+        printf("Acc[g]x1000=%ld,%ld,%ld Gyro[dps]x1000=%ld,%ld,%ld Temp[C]x1000=%ld\r\n",
+               (long)(data.accel_g.x * 1000.0f),
+               (long)(data.accel_g.y * 1000.0f),
+               (long)(data.accel_g.z * 1000.0f),
+               (long)(data.gyro_dps.x * 1000.0f),
+               (long)(data.gyro_dps.y * 1000.0f),
+               (long)(data.gyro_dps.z * 1000.0f),
+               (long)(data.temperature_c * 1000.0f));
+        HAL_Delay(100);
+    }
+}
+~~~
+
 ---
 
 ## 📧 联系方式

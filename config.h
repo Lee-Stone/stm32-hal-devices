@@ -123,4 +123,34 @@
     #define ICM42688P_MOSI(x)          HAL_GPIO_WritePin(ICM42688P_MOSI_GPIO_Port, ICM42688P_MOSI_Pin, (x))
 #endif
 
+/* ==================== SD 卡配置 ==================== */
+
+#define DEVICE_SDCARD  0
+#if DEVICE_SDCARD
+    #include "sdio.h"
+    #define SDCARD_HANDLE              hsd
+    #define SDCARD_INSTANCE            SDIO
+    #define SDCARD_CLOCK_EDGE          SDIO_CLOCK_EDGE_RISING
+    #define SDCARD_CLOCK_BYPASS        SDIO_CLOCK_BYPASS_DISABLE
+    #define SDCARD_CLOCK_POWER_SAVE    SDIO_CLOCK_POWER_SAVE_DISABLE
+    #define SDCARD_HARDWARE_FLOW       SDIO_HARDWARE_FLOW_CONTROL_DISABLE
+    #define SDCARD_CLOCK_DIVIDER       0U
+    #define SDCARD_BUS_WIDTH           SDIO_BUS_WIDE_4B
+#endif
+
+/* ==================== ES8388 音频编解码器配置 ==================== */
+
+#define DEVICE_ES8388  0
+#if DEVICE_ES8388
+    #include "i2c.h"
+    #include "i2s.h"
+    #include "gpio.h"
+    #define ES8388_I2C_HANDLE          hi2c1
+    #define ES8388_I2S_HANDLE          hi2s2
+    #define ES8388_SAMPLE_RATE_HZ      8000U
+    #define ES8388_AUDIO_TIMEOUT_MS    2000U
+    #define ES8388_AMP_ENABLE()        HAL_GPIO_WritePin(HT6872_CTRL_GPIO_Port, HT6872_CTRL_Pin, GPIO_PIN_SET)
+    #define ES8388_AMP_DISABLE()       HAL_GPIO_WritePin(HT6872_CTRL_GPIO_Port, HT6872_CTRL_Pin, GPIO_PIN_RESET)
+#endif
+
 #endif

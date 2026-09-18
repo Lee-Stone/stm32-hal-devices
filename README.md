@@ -29,8 +29,9 @@
   - [10. AHT20 温湿度传感器模块](#10-aht20-温湿度传感器模块)
   - [11. ST7789 显示模块](#11-st7789-显示模块)
   - [12. XPT2046 触摸模块](#12-xpt2046-触摸模块)
-  - [12. XPT2046 触摸模块](#13-xpt2046-触摸模块)
   - [13. ICM42688P 六轴传感器模块](#13-icm42688p-六轴传感器模块)
+  - [14. SDCard 存储模块](#14-sdcard-存储模块)
+  - [15. ES8388 音频编解码模块](#15-es8388-音频编解码模块)
 - [📧 联系方式](#-联系方式)
 
 ## 📖 项目简介
@@ -54,6 +55,8 @@ stm32-hal-devices/
 ├── AHT20/                  # AHT20 温湿度传感器模块
 ├── ST7789/                 # ST7789 显示模块
 ├── XPT2046/                # XPT2046 触摸模块
+├── SDCard/                 # SD 卡存储模块（含 FatFs）
+├── ES8388/                 # ES8388 音频编解码模块
 ├── images/
 ├── README.md              
 └── LICENSE
@@ -1709,6 +1712,278 @@ int main(void)
     }
 }
 ~~~
+
+---
+
+### 14. SDCard 存储模块
+
+适配 STM32F407VET6 的 SD 卡存储模块，使用 SDIO 4-bit 总线并内置 FatFs R0.12c。应用层可直接调用文件写入和读取接口，底层逻辑块接口仍然保留。
+
+![30](images/30.png)
+
+#### 硬件连接
+
+| SD 卡信号 | STM32F407VET6 引脚 | 说明 |
+|----------|--------------------|------|
+| VCC | 3.3V | 电源 |
+| GND | GND | 公共地 |
+| D0 | PC8 / SDIO_D0 | 数据位 0 |
+| D1 | PC9 / SDIO_D1 | 数据位 1 |
+| D2 | PC10 / SDIO_D2 | 数据位 2 |
+| D3 | PC11 / SDIO_D3 | 数据位 3 |
+| CLK | PC12 / SDIO_CK | 时钟 |
+| CMD | PD2 / SDIO_CMD | 命令 |
+
+#### CubeMX 配置
+
+**添加路径：**
+
+- 点击 `项目` -> 点击 `属性` -> 点击 `C/C++ 常规` -> 点击 `路径和符号`，在 `包含` 和 `源位置` 中添加 `Devices/SDCard`。
+- 如果工程不会自动收集源文件，将 `SDCard.c`、`ff.c`、`diskio.c` 加入编译。
+
+![31](images/31.png)
+
+**SDIO 配置：**
+
+- 在 **Connectivity** 中打开 **SDIO**，模式选择 **SD 4 bits Wide bus**。
+- 引脚保持为 PC8/SDIO_D0、PC9/SDIO_D1、PC10/SDIO_D2、PC11/SDIO_D3、PC12/SDIO_CK、PD2/SDIO_CMD。
+
+![32](images/32.png)
+
+- Clock edge：**Rising Edge**
+- Clock bypass：**Disable**
+- Clock power save：**Disable**
+- Hardware flow control：**Disable**
+- SDIO Clock divider：**0**
+- GPIO 保持参考工程配置：**Alternate Function Push Pull**、**No pull-up and no pull-down**、**Very High**、**AF12_SDIO**。
+- 参考工程使用 8 MHz HSE、PLLM=4、PLLN=168、PLLQ=7，SDIO 使用的 48 MHz 时钟为 48 MHz。
+- 其他选项保持默认配置。
+
+![33](images/33.png)
+
+驱动中的时钟沿、Bypass、Power Save、Hardware Flow Control、Clock Divider 和总线宽度均按已调通工程保留。`SDCard_Init()` 会调用 `HAL_SD_Init()` 完成初始化，因此应用层无需另外调用 `MX_SDIO_SD_Init()`。
+
+#### config.h 配置
+
+```c
+// 使能 SDCard 模块
+#define DEVICE_SDCARD  1
+#if DEVICE_SDCARD
+    #include "sdio.h"
+    #define SDCARD_HANDLE              hsd
+    #define SDCARD_INSTANCE            SDIO
+    #define SDCARD_CLOCK_EDGE          SDIO_CLOCK_EDGE_RISING
+    #define SDCARD_CLOCK_BYPASS        SDIO_CLOCK_BYPASS_DISABLE
+    #define SDCARD_CLOCK_POWER_SAVE    SDIO_CLOCK_POWER_SAVE_DISABLE
+    #define SDCARD_HARDWARE_FLOW       SDIO_HARDWARE_FLOW_CONTROL_DISABLE
+    #define SDCARD_CLOCK_DIVIDER       0U
+    #define SDCARD_BUS_WIDTH           SDIO_BUS_WIDE_4B
+#endif
+```
+
+#### API 接口
+
+```c
+// 应用层文件接口
+FRESULT         SDCard_WriteFile(const char *path, const void *data,
+                                 uint32_t size, uint32_t *bytes_written);  // 创建或覆盖文件并写入
+FRESULT         SDCard_ReadFile(const char *path, void *data,
+                                uint32_t size, uint32_t *bytes_read);      // 从文件开头读取
+
+// 文件系统接口
+FRESULT         SDCard_Mount(void);                                       // 挂载文件系统
+FRESULT         SDCard_Unmount(void);                                     // 卸载文件系统
+uint8_t         SDCard_IsMounted(void);                                   // 查询挂载状态
+FRESULT         SDCard_RemoveFile(const char *path);                      // 删除文件
+FRESULT         SDCard_GetSpace(uint32_t *total_kb, uint32_t *free_kb);   // 查询容量
+
+// 原始块设备接口
+SDCard_Status_t SDCard_Init(void);                                        // 初始化 SD 卡
+SDCard_Status_t SDCard_GetInfo(SDCard_Info_t *info);                      // 获取卡信息
+SDCard_Status_t SDCard_ReadBlocks(uint32_t block, uint8_t *data,
+                                  uint32_t block_count);                   // 读取逻辑块
+SDCard_Status_t SDCard_WriteBlocks(uint32_t block, const uint8_t *data,
+                                   uint32_t block_count);                  // 写入逻辑块
+```
+
+#### 使用示例
+
+```c
+#include "SDCard.h"
+
+int main(void)
+{
+    const uint8_t text[] = "SDCard test OK!\r\n";
+    uint8_t data[64];
+    uint32_t bytes_written;
+    uint32_t bytes_read;
+
+    if (SDCard_WriteFile("0:/SDTEST.TXT", text, sizeof(text) - 1U,
+                         &bytes_written) == FR_OK)
+    {
+        if (SDCard_ReadFile("0:/SDTEST.TXT", data, sizeof(data) - 1U,
+                            &bytes_read) == FR_OK)
+        {
+            data[bytes_read] = '\0';
+        }
+    }
+
+    SDCard_Unmount();
+
+    while (1)
+    {
+    }
+}
+```
+
+`SDCard_WriteFile()` 使用创建并覆盖模式。当前 FatFs 配置支持 FAT16/FAT32、512 字节扇区和 8.3 短文件名，不支持 exFAT、长文件名和在单片机上格式化；请先在电脑上格式化 SD 卡。连续读写完成后，在断电或拔卡前调用 `SDCard_Unmount()`。
+
+---
+
+### 15. ES8388 音频编解码模块
+
+适配 STM32F407VET6 的 ES8388 音频编解码器，使用 I2C1 配置寄存器，使用 I2S2 收发 8 kHz、16 位、双声道 PCM。支持板载麦克风、耳机麦克风、耳机和经 HT6872 驱动的双扬声器，并提供内存播放、回调流播放和缓冲区录音接口。
+
+![34](images/34.png)
+
+#### 硬件连接
+
+| ES8388/音频信号 | STM32F407VET6 引脚 | 说明 |
+|----------------|--------------------|------|
+| CCLK | PB6 / I2C1_SCL | 控制时钟 |
+| CDATA | PB7 / I2C1_SDA | 控制数据，ES8388 7 位地址为 `0x10` |
+| LRCK | PB12 / I2S2_WS | 左右声道时钟 |
+| SCLK | PB13 / I2S2_CK | 串行位时钟 |
+| ASDOUT | PB14 / I2S2_ext_SD | ES8388 ADC 数据进入 MCU |
+| DSDIN | PB15 / I2S2_SD | MCU 数据进入 ES8388 DAC |
+| MCLK | PC6 / I2S2_MCK | 主时钟 |
+| HT6872_CTRL | PE4 | 双通道扬声器功放使能，高电平有效 |
+
+板载麦克风使用 LIN1/RIN1 差分输入，耳机麦克风使用 LIN2/RIN2，耳机使用 LOUT1/ROUT1，双扬声器通过 LOUT2/ROUT2 连接 HT6872。
+
+#### CubeMX 配置
+
+**添加路径：**
+
+- 点击 `项目` -> 点击 `属性` -> 点击 `C/C++ 常规` -> 点击 `路径和符号`，在 `包含` 和 `源位置` 中添加 `Devices/ES8388`。
+- 如果工程不会自动收集源文件，将 `ES8388.c` 加入编译。
+
+![35](images/35.png)
+
+**I2C1 配置：**
+
+- Clock Speed：**100000 Hz**
+- Duty Cycle：**2**
+- Addressing Mode：**7-bit**
+- PB6/I2C1_SCL、PB7/I2C1_SDA：**Alternate Function Open Drain**、**No pull-up and no pull-down**、**Very High**、**AF4_I2C1**
+
+**I2S2 配置：**
+
+- Mode：**Master Transmit**
+- Standard：**Philips**
+- Data and Frame Format：**16 Bits Data on 16 Bits Frame**
+- Master Clock Output：**Enable**
+- Audio Frequency：**8 kHz**（参考工程实际约 7.978 kHz）
+- Clock Polarity：**Low**
+- Clock Source：**PLL**
+- Full Duplex Mode：**Enable**
+- PLLI2S：**PLLI2SN=192**、**PLLI2SR=2**
+- PB12/I2S2_WS、PB13/I2S2_CK、PB15/I2S2_SD、PC6/I2S2_MCK 使用对应 AF5；PB14/I2S2_ext_SD 使用 AF6。GPIO 均为推挽复用、无上下拉、Low Speed。
+
+![36](images/36.png)
+
+**HT6872 配置：**
+
+- PE4 配置为 **GPIO Output / Push Pull / No pull / Low Speed**。
+- 输出初始电平必须为低。驱动不会初始化该引脚，只使用 `main.h` 中 CubeMX 生成的 `HT6872_CTRL_Pin` 和 `HT6872_CTRL_GPIO_Port`。
+
+驱动不会调用 `MX_I2C1_Init()`、`MX_I2S2_Init()` 或 `MX_GPIO_Init()`，请在 `ES8388_Init()` 前完成 CubeMX 外设初始化。寄存器值和顺序保留自已调通工程的 `test/es8388.c`、`test/speaker_test.c`：耳机只打开 LOUT1/ROUT1（`DACPOWER=0x30`），扬声器只打开 LOUT2/ROUT2（`DACPOWER=0x0C`）。
+
+#### config.h 配置
+
+```c
+// 使能 ES8388 模块
+#define DEVICE_ES8388  1
+#if DEVICE_ES8388
+    #include "i2c.h"
+    #include "i2s.h"
+    #include "gpio.h"
+    #define ES8388_I2C_HANDLE          hi2c1
+    #define ES8388_I2S_HANDLE          hi2s2
+    #define ES8388_SAMPLE_RATE_HZ      8000U
+    #define ES8388_AUDIO_TIMEOUT_MS    2000U
+    #define ES8388_AMP_ENABLE()        HAL_GPIO_WritePin(HT6872_CTRL_GPIO_Port, HT6872_CTRL_Pin, GPIO_PIN_SET)
+    #define ES8388_AMP_DISABLE()       HAL_GPIO_WritePin(HT6872_CTRL_GPIO_Port, HT6872_CTRL_Pin, GPIO_PIN_RESET)
+#endif
+```
+
+#### API 接口
+
+```c
+ES8388_Status_t ES8388_Init(void);                                        // 初始化，输入输出保持关闭
+ES8388_Status_t ES8388_DeInit(void);                                      // 静音并复位
+ES8388_Status_t ES8388_SetInput(ES8388_Input_t input);                    // 选择录音输入并关闭输出
+ES8388_Status_t ES8388_SetOutput(ES8388_Output_t output);                 // 选择播放输出并关闭输入
+ES8388_Status_t ES8388_SetInputGain(uint8_t gain_db);                     // ADC 增益 0~24 dB，步进 3 dB
+ES8388_Status_t ES8388_SetOutputVolume(ES8388_Output_t output,
+                                       uint8_t volume);                   // 模拟音量 0x00~0x1E
+ES8388_Status_t ES8388_SetMute(uint8_t muted);                            // 当前输出静音控制
+ES8388_Status_t ES8388_Transmit(const int16_t *samples,
+                                uint32_t word_count,
+                                uint32_t timeout_ms);                      // 底层 PCM 发送
+ES8388_Status_t ES8388_Receive(int16_t *samples, uint32_t word_count,
+                               uint32_t timeout_ms);                       // 底层 PCM 接收
+ES8388_Status_t ES8388_PlayBuffer(const int16_t *samples,
+                                  uint32_t word_count,
+                                  ES8388_Output_t output,
+                                  uint32_t timeout_ms);                    // 播放数组或 malloc 内存
+ES8388_Status_t ES8388_PlayStream(ES8388_ReadCallback_t read_callback,
+                                  void *context, int16_t *work_buffer,
+                                  uint32_t work_words,
+                                  ES8388_Output_t output,
+                                  uint32_t timeout_ms);                    // 回调流播放
+ES8388_Status_t ES8388_RecordBuffer(int16_t *samples, uint32_t word_count,
+                                    ES8388_Input_t input,
+                                    uint32_t timeout_ms);                  // 录音到用户缓冲区
+```
+
+#### 使用示例
+
+```c
+#include "ES8388.h"
+
+extern const int16_t AudioPcm[];       // 左、右、左、右排列的双声道 PCM
+extern const uint32_t AudioPcmWords;   // 16 位字数，不是字节数
+
+int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_I2C1_Init();
+    MX_I2S2_Init();
+
+    if (ES8388_Init() == ES8388_OK)
+    {
+        ES8388_SetOutputVolume(ES8388_OUTPUT_HEADPHONE,
+                               ES8388_HEADPHONE_VOLUME_DEFAULT);
+        ES8388_PlayBuffer(AudioPcm, AudioPcmWords,
+                          ES8388_OUTPUT_HEADPHONE,
+                          ES8388_AUDIO_TIMEOUT_MS);
+        ES8388_DeInit();
+    }
+
+    while (1)
+    {
+    }
+}
+```
+
+数组和 `malloc()` 得到的 PCM 内存都可直接传给 `ES8388_PlayBuffer()`。较大的 SD 文件应使用 `ES8388_PlayStream()`：读取回调每次把下一块 PCM 写入工作缓冲区，返回实际 16 位字数，文件结束返回 0，读取或解码失败返回负数。因此回调既可以封装 FatFs 的 `f_read()`，也可以封装 MP3 解码器。
+
+ES8388 本身不解码 MP3。SD 卡中的 MP3 必须先由应用层解码为与 I2S2 一致的 **8 kHz、16 位、双声道 PCM**，再由回调交给驱动；WAV 文件也需要跳过文件头，并在应用层处理采样率和单双声道转换。
+
+驱动严格保证输入、输出不会同时使能：`ES8388_SetInput()` 会先静音并关闭 DAC、LOUT1/ROUT1、LOUT2/ROUT2 和 HT6872；`ES8388_SetOutput()` 会先关闭 ADC。扬声器切换期间 PE4 始终保持低电平，LOUT2/ROUT2 路由稳定后等待 10 ms 才拉高，静音、耳机、录音、停止和 I2S 错误都会立即拉低 PE4。`ES8388_PlayBuffer()`、`ES8388_PlayStream()` 和 `ES8388_RecordBuffer()` 完成后会自动关闭当前通路。
 
 ---
 

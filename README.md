@@ -1897,8 +1897,6 @@ int main(void)
 - PE4 配置为 **GPIO Output / Push Pull / No pull / Low Speed**。
 - 输出初始电平必须为低。驱动不会初始化该引脚，只使用 `main.h` 中 CubeMX 生成的 `HT6872_CTRL_Pin` 和 `HT6872_CTRL_GPIO_Port`。
 
-![37](images/37.png)
-
 驱动不会调用 `MX_I2C1_Init()`、`MX_I2S2_Init()` 或 `MX_GPIO_Init()`，请在 `ES8388_Init()` 前完成 CubeMX 外设初始化。寄存器值和顺序保留自已调通工程的 `test/es8388.c`、`test/speaker_test.c`：耳机只打开 LOUT1/ROUT1（`DACPOWER=0x30`），扬声器只打开 LOUT2/ROUT2（`DACPOWER=0x0C`）。
 
 #### config.h 配置

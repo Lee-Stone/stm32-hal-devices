@@ -2003,7 +2003,7 @@ ES8388 本身不解码 MP3。SD 卡中的 MP3 必须先由应用层解码为与 
 - `WIFI/ring_buffer.h`
 - `WIFI/errno.h`
 
-![image-20260919100428790](images/image-20260919100428790.png)
+![37](images/37.png)
 
 #### 硬件连接
 
@@ -2013,6 +2013,8 @@ ES8388 本身不解码 MP3。SD 卡中的 MP3 必须先由应用层解码为与 
 | GND          | GND                | 公共地   |
 | TX           | PD9                | 串口发送 |
 | RX           | PD8                | 串口接收 |
+
+![38](images/38.png)
 
 #### CubeMX 配置
 
@@ -2028,14 +2030,14 @@ ES8388 本身不解码 MP3。SD 卡中的 MP3 必须先由应用层解码为与 
 - 驱动固定使用 CubeMX 生成的 UART 句柄 `huart3`。
 - 发送和接收均使用 UART 中断方式，必须开启 USART3 全局中断。
 
-  ![image-20260919104015335](images/image-20260919104015335.png)
+  ![39](images/39.png)
 
 **NVIC 配置：**
 
 - 使能 USART3 全局中断。
 - 其他选项保持默认配置。
 
-  ![image-20260919104052278](images/image-20260919104052278.png)
+  ![40](images/40.png)
 
 USART3 中断处理函数需要调用 HAL 中断处理接口：
 

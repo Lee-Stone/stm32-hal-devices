@@ -1,4 +1,4 @@
-# stm32-hal-devices
+#  stm32-hal-devices
 
 适配 STM32 HAL 库的常用外设/传感器模块，提供统一的配置入口与简单的使用接口。
 
@@ -32,6 +32,7 @@
   - [13. ICM42688P 六轴传感器模块](#13-icm42688p-六轴传感器模块)
   - [14. SDCard 存储模块](#14-sdcard-存储模块)
   - [15. ES8388 音频编解码模块](#15-es8388-音频编解码模块)
+  - [16. WIFI12F 模块](#16-wifi12f-模块)
 - [📧 联系方式](#-联系方式)
 
 ## 📖 项目简介
@@ -57,6 +58,7 @@ stm32-hal-devices/
 ├── XPT2046/                # XPT2046 触摸模块
 ├── SDCard/                 # SD 卡存储模块（含 FatFs）
 ├── ES8388/                 # ES8388 音频编解码模块
+├── WIFI12F/                # WIFI12F 无线模块
 ├── images/
 ├── README.md              
 └── LICENSE
@@ -1984,6 +1986,167 @@ int main(void)
 ES8388 本身不解码 MP3。SD 卡中的 MP3 必须先由应用层解码为与 I2S2 一致的 **8 kHz、16 位、双声道 PCM**，再由回调交给驱动；WAV 文件也需要跳过文件头，并在应用层处理采样率和单双声道转换。
 
 驱动严格保证输入、输出不会同时使能：`ES8388_SetInput()` 会先静音并关闭 DAC、LOUT1/ROUT1、LOUT2/ROUT2 和 HT6872；`ES8388_SetOutput()` 会先关闭 ADC。扬声器切换期间 PE4 始终保持低电平，LOUT2/ROUT2 路由稳定后等待 10 ms 才拉高，静音、耳机、录音、停止和 I2S 错误都会立即拉低 PE4。`ES8388_PlayBuffer()`、`ES8388_PlayStream()` 和 `ES8388_RecordBuffer()` 完成后会自动关闭当前通路。
+
+---
+
+### 16. WIFI12F 模块
+
+适配 STM32F407VET6 的 12F WiFi/蓝牙双模无线模块，通过 USART3 与模块通信，提供 WiFi 连接、WiFi 断开、TCP/UDP 网络连接、数据发送和数据接收接口。
+
+本模块采用直接函数调用方式，不需要注册 UART 设备或创建 WiFi 设备对象。当前驱动维护一个网络连接，适合单 TCP/UDP 连接场景。
+
+移植时需要将以下文件加入工程：
+
+- `WIFI/dev_wifi.c`
+- `WIFI/dev_wifi.h`
+- `WIFI/ring_buffer.c`
+- `WIFI/ring_buffer.h`
+- `WIFI/errno.h`
+
+![image-20260919100428790](images/image-20260919100428790.png)
+
+#### 硬件连接
+
+| WIFI 芯片引脚 | STM32F407VET6 引脚 | 说明     |
+| ------------ | ------------------ | -------- |
+| VCC          | 3.3V               | 电源     |
+| GND          | GND                | 公共地   |
+| TX           | PD9                | 串口发送 |
+| RX           | PD8                | 串口接收 |
+
+#### CubeMX 配置
+
+**添加路径：**
+
+- 将 `WIFI` 目录添加到工程的头文件路径和源文件路径中。
+
+**USART3 配置：**
+
+- 将 USART3 设置为异步通信模式。
+- 根据 WiFi 模块配置波特率、数据位、停止位和校验位。
+- USART3 的 TX 连接模块 RX，USART3 的 RX 连接模块 TX。
+- 驱动固定使用 CubeMX 生成的 UART 句柄 `huart3`。
+- 发送和接收均使用 UART 中断方式，必须开启 USART3 全局中断。
+
+  ![image-20260919104015335](images/image-20260919104015335.png)
+
+**NVIC 配置：**
+
+- 使能 USART3 全局中断。
+- 其他选项保持默认配置。
+
+  ![image-20260919104052278](images/image-20260919104052278.png)
+
+USART3 中断处理函数需要调用 HAL 中断处理接口：
+
+```c
+void USART3_IRQHandler(void)
+{
+    HAL_UART_IRQHandler(&huart3);
+}
+```
+
+如果工程中已经存在 `HAL_UART_RxCpltCallback()` 或 `HAL_UART_TxCpltCallback()`，需要将本模块的 USART3 处理逻辑合并到已有回调中，避免重复定义。
+
+其他选项保持默认配置。
+
+#### config.h 配置
+
+```c
+/* Enable the WIFI12F module. */
+#define DEVICE_WIFI    1
+#if DEVICE_WIFI
+    #include "usart.h"
+    #include "dev_wifi.h"
+#endif
+```
+
+`DEVICE_WIFI` 默认值建议为 `0`，确认 USART3 配置完成并加入本模块源文件后，再改为 `1`。
+
+#### API 接口
+
+```c
+int WIFI_Init(void);                                                     /* 初始化 WiFi 模块 */
+int WIFI_Connect(const char *name, const char *password);               /* 连接 WiFi */
+int WIFI_Disconnect(void);                                               /* 断开 WiFi */
+int WIFI_NetConnect(unsigned char type, const char *ip, unsigned int port); /* 连接网络 */
+int WIFI_NetDisconnect(unsigned int port);                              /* 断开网络 */
+int WIFI_Write(unsigned int port, const unsigned char *data, unsigned int length); /* 发送数据 */
+int WIFI_Read(unsigned int port, unsigned char *data, unsigned int length);         /* 接收数据 */
+```
+
+网络类型参数可使用以下枚举值：
+
+| 参数 | 含义 |
+| --- | --- |
+| `UDPServer` | UDP 服务端 |
+| `UDPClient` | UDP 客户端 |
+| `TCPServer` | TCP 服务端 |
+| `TCPClient` | TCP 客户端 |
+| `TCPSeed` | TCP 数据流模式 |
+| `SSLServer` | SSL 服务端 |
+| `SSLClient` | SSL 客户端 |
+| `SSLSeed` | SSL 数据流模式 |
+
+调用顺序为：
+
+1. `WIFI_Init()`：创建接收缓冲区、开启 USART3 接收中断并初始化模块。
+2. `WIFI_Connect()`：连接无线路由器。
+3. `WIFI_NetConnect()`：连接一个 TCP/UDP 网络端点。
+4. `WIFI_Write()` 和 `WIFI_Read()`：发送和接收网络数据。
+5. `WIFI_NetDisconnect()`：断开当前网络连接。
+6. `WIFI_Disconnect()`：断开 WiFi。
+
+返回值为 `ESUCCESS`（0）表示成功，负数表示失败。`WIFI_Write()` 和 `WIFI_Read()` 成功时返回实际处理的字节数。
+
+当前模块只维护一个网络连接，因此同一时间只能有一个有效的 `port`。`WIFI_Read()` 应在服务器发送数据后调用；没有可读数据时会返回负数。
+
+#### 使用示例
+
+```c
+#include "dev_wifi.h"
+#include "errno.h"
+
+#define WIFI_NAME      "WiFi名称"
+#define WIFI_PASSWORD  "WiFi密码"
+#define SERVER_IP      "192.168.1.100"
+#define SERVER_PORT    8080U
+
+int WIFI_DriverExample(void)
+{
+    unsigned char txData[] = "hello wifi";
+    unsigned char rxData[128] = {0};
+    int ret;
+
+    ret = WIFI_Init();
+    if(ret != ESUCCESS) return ret;
+
+    ret = WIFI_Connect(WIFI_NAME, WIFI_PASSWORD);
+    if(ret != ESUCCESS) return ret;
+
+    ret = WIFI_NetConnect(TCPClient, SERVER_IP, SERVER_PORT);
+    if(ret != ESUCCESS)
+    {
+        WIFI_Disconnect();
+        return ret;
+    }
+
+    ret = WIFI_Write(SERVER_PORT, txData, sizeof(txData) - 1U);
+    if(ret < 0) goto cleanup;
+
+    /* Read after the remote server has sent data. */
+    ret = WIFI_Read(SERVER_PORT, rxData, sizeof(rxData));
+
+cleanup:
+    WIFI_NetDisconnect(SERVER_PORT);
+    WIFI_Disconnect();
+    return ret;
+}
+```
+
+应用层只需要包含 `dev_wifi.h` 和 `errno.h`。`dev_wifi.h` 会通过 `config.h` 引入 `usart.h`，但工程仍必须先完成 USART3 的 HAL 初始化。
+
+
 
 ---
 

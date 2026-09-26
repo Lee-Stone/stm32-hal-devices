@@ -4,6 +4,13 @@
 #include "main.h"
 #include <stdint.h>
 
+// 使能 WIFI蓝牙 模块
+#define DEVICE_WIFI    0
+#if DEVICE_WIFI
+    #include "usart.h"
+    #include "dev_wifi.h"
+#endif
+
 #define DEVICE_OLED     0
 #if DEVICE_OLED 
     #include "gpio.h"
